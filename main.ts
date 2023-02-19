@@ -1,137 +1,139 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Notice, Plugin, Setting } from "obsidian";
+import dayjs from "dayjs";
 
-// Remember to rename these classes and interfaces!
+// 存储当天一个文件的
+type Daily = Record<string, { pre: number; cur: number }>;
+type Count = Record<string, Daily>;
 
-interface MyPluginSettings {
+interface PluginSetting {
 	mySetting: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+const DEFAULT_SETTINGS: PluginSetting = {
+	mySetting: "default",
+};
 
 export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+	settings: PluginSetting;
+	private today: string;
+	private todayCount: Daily = {};
+	private counts: Count = {};
+	private statusBarItemEl: any;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		this.checkTodayDate();
+
+		const ribbonIconEl = this.addRibbonIcon(
+			"dice",
+			"Show Activity Graph",
+			(evt: MouseEvent) => {
+				// 展示新的面板
+
+				new Notice("@TODO: 需要展示一个新的面板页面");
+			}
+		);
+
+		ribbonIconEl.addClass("my-plugin-ribbon-class");
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+		this.statusBarItemEl = statusBarItemEl;
+		// statusBarItemEl.setText(`具体的字符数`);
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
 		// This adds an editor command that can perform some operation on the current editor instance
 		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
+			id: "sample-editor-command",
+			name: "Sample editor command",
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+				editor.replaceSelection("Sample Editor Command");
+			},
 		});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		// this.registerInterval(window.setInterval(() => 200));
+
+		this.onPageView();
 	}
 
-	onunload() {
+	onunload() {}
 
+	onPageView() {
+		this.app.workspace.on("quick-preview", ({ path }, content) => {
+			this.getTodayCount(path, content);
+			this.statusBarItemEl.setText(
+				`具体的字符数: ${this.getTodayTotalWords()}`
+			);
+			// console.log(path, content);
+		});
+	}
+
+	getTodayCount(file: string, content: string) {
+		const { todayCount } = this;
+
+		const words = this.getTextWords(content);
+
+		if (todayCount[file]) {
+			todayCount[file].cur = words;
+		} else {
+			// 首次输入
+			todayCount[file] = {
+				pre: words,
+				cur: words,
+			};
+		}
+	}
+
+	getTodayTotalWords() {
+		let total = 0;
+		for (let filePath in this.todayCount) {
+			const { pre, cur } = this.todayCount[filePath];
+			total += cur - pre;
+		}
+		return total;
+	}
+	// 如果天数发生变更, 则更新天数
+	checkTodayDate() {
+		const cur = dayjs().format("YYYY-MM-DD");
+		if (this.today !== cur) {
+			this.flushToday();
+			this.today = cur;
+			this.todayCount = this.counts[cur] || {};
+		}
+	}
+
+	// 写入当天的记录
+	flushToday() {
+		this.counts[this.today] = this.todayCount;
+	}
+
+	getTextWords(content: string) {
+		let words: number = 0;
+
+		const matches = content.match(
+			/[a-zA-Z0-9_\u0392-\u03c9\u00c0-\u00ff\u0600-\u06ff]+|[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u309f\uac00-\ud7af]+/gm
+		);
+
+		if (matches) {
+			for (let match of matches) {
+				words += match.charCodeAt(0) > 19968 ? match.length : 1;
+			}
+		}
+
+		return words;
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
 	}
 }
