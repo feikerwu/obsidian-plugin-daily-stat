@@ -67,9 +67,7 @@ export default class MyPlugin extends Plugin {
 	onPageView() {
 		this.app.workspace.on("quick-preview", ({ path }, content) => {
 			this.getTodayCount(path, content);
-			this.statusBarItemEl.setText(
-				`具体的字符数: ${this.getTodayTotalWords()}`
-			);
+			this.statusBarItemEl.setText(`today: ${this.getTodayTotalWords()}`);
 			// console.log(path, content);
 		});
 	}
