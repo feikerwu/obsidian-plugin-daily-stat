@@ -6,16 +6,17 @@ type Daily = Record<string, { pre: number; cur: number }>;
 type Count = Record<string, Daily>;
 
 interface PluginSetting {
-	mySetting: string;
+	counts: Count;
+	// mySetting: string;
 }
 
 const DEFAULT_SETTINGS: PluginSetting = {
-	mySetting: "default",
+	counts: {},
 };
 
 export default class MyPlugin extends Plugin {
 	settings: PluginSetting;
-	private today: string;
+	private today: string = dayjs().format("YYYY-MM-DD");
 	private todayCount: Daily = {};
 	private counts: Count = {};
 	private statusBarItemEl: any;
@@ -30,6 +31,9 @@ export default class MyPlugin extends Plugin {
 			"Show Activity Graph",
 			(evt: MouseEvent) => {
 				// 展示新的面板
+				// console.log()
+				this.flushToday();
+				console.log(JSON.stringify(this.counts));
 
 				new Notice("@TODO: 需要展示一个新的面板页面");
 			}
@@ -106,7 +110,9 @@ export default class MyPlugin extends Plugin {
 
 	// 写入当天的记录
 	flushToday() {
-		this.counts[this.today] = this.todayCount;
+		if (this.today) {
+			this.counts[this.today] = this.todayCount;
+		}
 	}
 
 	getTextWords(content: string) {
@@ -131,6 +137,8 @@ export default class MyPlugin extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+
+		this.counts = this.settings.counts;
 	}
 
 	async saveSettings() {
