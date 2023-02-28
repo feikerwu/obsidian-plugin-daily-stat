@@ -62,7 +62,9 @@ export default class MyPlugin extends Plugin {
 		this.onPageView();
 	}
 
-	onunload() {}
+	async onunload() {
+		await this.saveSettings();
+	}
 
 	onPageView() {
 		this.app.workspace.on("quick-preview", ({ path }, content) => {

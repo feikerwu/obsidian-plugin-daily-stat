@@ -1,4 +1,4 @@
-lockfileVersion: 5.3
+lockfileVersion: 5.4
 
 specifiers:
   '@types/node': ^16.11.6
@@ -16,7 +16,7 @@ dependencies:
 
 devDependencies:
   '@types/node': 16.18.12
-  '@typescript-eslint/eslint-plugin': 5.29.0_9c48426b5affe47de21e7b6042aecb62
+  '@typescript-eslint/eslint-plugin': 5.29.0_treee22277sh3yq6pnqeflwlmi
   '@typescript-eslint/parser': 5.29.0_typescript@4.7.4
   builtin-modules: 3.3.0
   esbuild: 0.17.3
@@ -269,7 +269,7 @@ packages:
       '@types/estree': 1.0.0
     dev: true
 
-  /@typescript-eslint/eslint-plugin/5.29.0_9c48426b5affe47de21e7b6042aecb62:
+  /@typescript-eslint/eslint-plugin/5.29.0_treee22277sh3yq6pnqeflwlmi:
     resolution: {integrity: sha512-kgTsISt9pM53yRFQmLZ4npj99yGl3x3Pl7z4eA66OuTzAGC4bQB5H5fuLwPnqTKU3yyrrg4MIhjF17UYnL4c0w==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
