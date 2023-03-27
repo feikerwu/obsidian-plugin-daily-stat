@@ -100,6 +100,7 @@ export default class MyPlugin extends Plugin {
 		}
 		return total;
 	}
+
 	// 如果天数发生变更, 则更新天数
 	checkTodayDate() {
 		const cur = dayjs().format("YYYY-MM-DD");
@@ -144,6 +145,11 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async saveSettings() {
+		this.settings = {
+			...this.settings,
+			counts: this.counts,
+		};
+
 		await this.saveData(this.settings);
 	}
 }
