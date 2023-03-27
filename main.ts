@@ -1,5 +1,6 @@
 import { App, Editor, MarkdownView, Notice, Plugin, Setting } from "obsidian";
 import dayjs from "dayjs";
+import path from "path";
 
 // 存储当天一个文件的
 type Daily = Record<string, { pre: number; cur: number }>;
@@ -10,28 +11,22 @@ interface PluginSetting {
 	// mySetting: string;
 }
 
-const DEFAULT_SETTINGS: PluginSetting = {
-	counts: {},
-};
-
 export default class MyPlugin extends Plugin {
-	settings: PluginSetting;
 	private today: string = dayjs().format("YYYY-MM-DD");
 	private todayCount: Daily = {};
 	private counts: Count = {};
 	private statusBarItemEl: any;
 
 	async onload() {
-		await this.loadSettings();
+		await this.getSetting();
 
-		this.checkTodayDate();
+		await this.checkTodayDate();
 
 		const ribbonIconEl = this.addRibbonIcon(
 			"dice",
 			"Show Activity Graph",
 			(evt: MouseEvent) => {
 				// 展示新的面板
-				// console.log()
 				this.flushToday();
 				console.log(JSON.stringify(this.counts));
 
@@ -63,16 +58,15 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async onunload() {
-		await this.saveSettings();
+		await this.flushToday();
 	}
 
 	onPageView() {
-		this.app.workspace.on("quick-preview", ({ path }, content) => {
-			this.checkTodayDate();
+		this.app.workspace.on("quick-preview", async ({ path }, content) => {
+			await this.checkTodayDate();
 
 			this.getTodayCount(path, content);
 			this.statusBarItemEl.setText(`today: ${this.getTodayTotalWords()}`);
-			// console.log(path, content);
 		});
 	}
 
@@ -102,19 +96,21 @@ export default class MyPlugin extends Plugin {
 	}
 
 	// 如果天数发生变更, 则更新天数
-	checkTodayDate() {
+	async checkTodayDate() {
 		const cur = dayjs().format("YYYY-MM-DD");
 		if (this.today !== cur) {
-			this.flushToday();
+			await this.flushToday();
 			this.today = cur;
 			this.todayCount = this.counts[cur] || {};
 		}
 	}
 
 	// 写入当天的记录
-	flushToday() {
+	async flushToday() {
 		if (this.today) {
 			this.counts[this.today] = this.todayCount;
+			// 每天更新配置
+			await this.saveSetting();
 		}
 	}
 
@@ -134,22 +130,42 @@ export default class MyPlugin extends Plugin {
 		return words;
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
+	async getPluginSettingPath() {
+		const filePath = path.join(
+			this.app.vault.configDir,
+			"daily-stats.json"
 		);
 
-		this.counts = this.settings.counts;
+		const isExist = await this.app.vault.adapter.exists(filePath);
+
+		console.log(isExist);
+
+		if (!isExist) {
+			console.log("new file");
+			await this.app.vault.adapter.write(filePath, "{}");
+		}
+
+		return filePath;
 	}
 
-	async saveSettings() {
-		this.settings = {
-			...this.settings,
-			counts: this.counts,
-		};
+	async getSetting() {
+		const configFilePath = await this.getPluginSettingPath();
 
-		await this.saveData(this.settings);
+		const records = await this.app.vault.adapter.read(configFilePath);
+
+		console.log("records", records);
+
+		this.counts = JSON.parse(records);
+		this.todayCount = this.counts[this.today] || {};
+	}
+
+	async saveSetting() {
+		const configFilePath = await this.getPluginSettingPath();
+
+		console.log("write", JSON.stringify(this.counts));
+		await this.app.vault.adapter.write(
+			configFilePath,
+			JSON.stringify(this.counts)
+		);
 	}
 }
